@@ -12,11 +12,12 @@
     <br><br>
     <video id="localVideo" autoplay playsinline muted style="max-width: 300px;"></video>
     <video id="remoteVideo" autoplay playsinline style="max-width: 300px;"></video>
+    <br>
+    <button onclick="switchCamera()">Switch Camera</button>
     <div>
         <label for="remotePeerId">Remote Peer ID:</label>
         <input type="text" id="remotePeerId">
         <button onclick="callPeer()">Call</button>
-        <button onclick="switchCamera()">Switch Camera</button>
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.1/dist/peerjs.min.js"></script>
@@ -25,10 +26,10 @@
         const remoteVideo = document.getElementById('remoteVideo');
         const remotePeerIdInput = document.getElementById('remotePeerId');
         const inputlocalpeerId = document.getElementById("localpeerId");
-
+        
         let currentStream;
-        let currentVideoSource = "user"; // Default to front camera
-
+        let videoConstraints = { facingMode: "user" }; // Default front camera
+        
         const peer = new Peer();
 
         peer.on('open', (id) => {
@@ -40,52 +41,40 @@
             console.log('Error: ' + error);
         });
 
-        function getMedia(videoSource) {
-            const constraints = {
-                video: { facingMode: videoSource },
-                audio: true
-            };
-            return navigator.mediaDevices.getUserMedia(constraints);
-        }
-
-        function startLocalStream() {
-            getMedia(currentVideoSource).then((stream) => {
-                if (currentStream) {
-                    currentStream.getTracks().forEach(track => track.stop());
-                }
-                currentStream = stream;
-                localVideo.srcObject = stream;
-            }).catch((err) => {
+        async function getUserMediaStream() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+            
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true });
+                localVideo.srcObject = currentStream;
+            } catch (err) {
                 console.log('Failed to get local stream', err);
-            });
+            }
         }
 
-        startLocalStream();
-
+        getUserMediaStream();
+        
         peer.on('call', (call) => {
             console.log('Incoming call...');
-            call.answer(currentStream); // Answer the call with the local stream
+            call.answer(currentStream);
             call.on('stream', (remoteStream) => {
-                remoteVideo.srcObject = remoteStream; // Show remote video
+                remoteVideo.srcObject = remoteStream;
             });
         });
-
+        
         function callPeer() {
             const remotePeerId = remotePeerIdInput.value;
-            getMedia(currentVideoSource).then((stream) => {
-                currentStream = stream;
-                const call = peer.call(remotePeerId, stream);
-                call.on('stream', (remoteStream) => {
-                    remoteVideo.srcObject = remoteStream;
-                });
-            }).catch((err) => {
-                console.log('Failed to get local stream', err);
+            const call = peer.call(remotePeerId, currentStream);
+            call.on('stream', (remoteStream) => {
+                remoteVideo.srcObject = remoteStream;
             });
         }
 
-        function switchCamera() {
-            currentVideoSource = currentVideoSource === "user" ? "environment" : "user";
-            startLocalStream();
+        async function switchCamera() {
+            videoConstraints.facingMode = videoConstraints.facingMode === "user" ? { exact: "environment" } : "user";
+            await getUserMediaStream();
         }
     </script>
 </body>
