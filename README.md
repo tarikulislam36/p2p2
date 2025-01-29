@@ -1,1 +1,1 @@
-# p2p2
+# simple peerjs example
