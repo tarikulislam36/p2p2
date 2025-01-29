@@ -28,6 +28,7 @@
         const inputlocalpeerId = document.getElementById("localpeerId");
         
         let currentStream;
+        let currentCall;
         let videoConstraints = { facingMode: "user" }; // Default front camera
         
         const peer = new Peer();
@@ -49,6 +50,13 @@
             try {
                 currentStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: true });
                 localVideo.srcObject = currentStream;
+                
+                if (currentCall) {
+                    let sender = currentCall.peerConnection.getSenders().find(s => s.track.kind === 'video');
+                    if (sender) {
+                        sender.replaceTrack(currentStream.getVideoTracks()[0]);
+                    }
+                }
             } catch (err) {
                 console.log('Failed to get local stream', err);
             }
@@ -58,6 +66,7 @@
         
         peer.on('call', (call) => {
             console.log('Incoming call...');
+            currentCall = call;
             call.answer(currentStream);
             call.on('stream', (remoteStream) => {
                 remoteVideo.srcObject = remoteStream;
@@ -67,6 +76,7 @@
         function callPeer() {
             const remotePeerId = remotePeerIdInput.value;
             const call = peer.call(remotePeerId, currentStream);
+            currentCall = call;
             call.on('stream', (remoteStream) => {
                 remoteVideo.srcObject = remoteStream;
             });
